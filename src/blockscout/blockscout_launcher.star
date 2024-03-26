@@ -7,7 +7,7 @@ IMAGE_NAME_BLOCKSCOUT_VERIF = "ghcr.io/blockscout/smart-contract-verifier:latest
 IMAGE_NAME_BLOCKSCOUT_FRONTEND = "ghcr.io/blockscout/frontend:latest"
 
 SERVICE_NAME_BLOCKSCOUT = "blockscout"
-SERVICE_NAME_BLOCKSCOUT_FRONTEND = "blockscout_frontend"
+SERVICE_NAME_BLOCKSCOUT_FRONTEND = "blockscout-frontend"
 
 HTTP_PORT_ID = "http"
 HTTP_PORT_NUMBER = 4000

@@ -3,13 +3,16 @@ constants = import_module("../package_io/constants.star")
 postgres = import_module("github.com/kurtosis-tech/postgres-package/main.star")
 
 IMAGE_NAME_BLOCKSCOUT = "blockscout/blockscout:latest"
-IMAGE_NAME_BLOCKSCOUT_VERIF = "ghcr.io/blockscout/smart-contract-verifier:v1.6.0"
+IMAGE_NAME_BLOCKSCOUT_VERIF = "ghcr.io/blockscout/smart-contract-verifier:latest"
+IMAGE_NAME_BLOCKSCOUT_FRONTEND = "ghcr.io/blockscout/frontend:latest"
 
 SERVICE_NAME_BLOCKSCOUT = "blockscout"
+SERVICE_NAME_BLOCKSCOUT_FRONTEND = "blockscout_frontend"
 
 HTTP_PORT_ID = "http"
 HTTP_PORT_NUMBER = 4000
 HTTP_PORT_NUMBER_VERIF = 8050
+HTTP_PORT_NUMBER_FRONTEND = 3000
 
 BLOCKSCOUT_MIN_CPU = 100
 BLOCKSCOUT_MAX_CPU = 1000
@@ -32,6 +35,14 @@ USED_PORTS = {
 VERIF_USED_PORTS = {
     HTTP_PORT_ID: shared_utils.new_port_spec(
         HTTP_PORT_NUMBER_VERIF,
+        shared_utils.TCP_PROTOCOL,
+        shared_utils.HTTP_APPLICATION_PROTOCOL,
+    )
+}
+
+FRONTEND_USED_PORTS = {
+    HTTP_PORT_ID: shared_utils.new_port_spec(
+        HTTP_PORT_NUMBER_FRONTEND,
         shared_utils.TCP_PROTOCOL,
         shared_utils.HTTP_APPLICATION_PROTOCOL,
     )
@@ -80,8 +91,27 @@ def launch_blockscout(
         blockscout_service.hostname, blockscout_service.ports["http"].number
     )
 
+    config_frontend = get_config_backend(blockscount_service.hostname, blockscout_service.ports["http"].number)
+    
+    frontend_service = plan.add_service(SERVICE_NAME_BLOCKSCOUT_FRONTEND, config_frontend)
+
     return blockscout_url
 
+def get_config_frontend(api_host, api_port):
+    return ServiceConfig(
+        image=IMAGE_NAME_BLOCKSCOUT_FRONTEND,
+        ports=FRONTEND_USED_PORTS,
+        env_vars={
+            "NEXT_PUBLIC_API_HOST": api_host,
+            "NEXT_PUBLIC_API_PORT": api_port,
+            "NEXT_PUBLIC_API_PROTOCOL": "http",
+            "NEXT_PUBLIC_APP_HOST": "0.0.0.0",
+            "NEXT_PUBLIC_APP_PORT": 3000,
+            "NEXT_PUBLIC_APP_INSTANCE": "0.0.0.0",
+            "NEXT_PUBLIC_APP_ENV": "development",
+            "NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL": "ws"
+        },
+    )
 
 def get_config_verif(node_selectors):
     return ServiceConfig(

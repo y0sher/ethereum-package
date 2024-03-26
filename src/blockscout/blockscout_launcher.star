@@ -91,7 +91,9 @@ def launch_blockscout(
         blockscout_service.hostname, blockscout_service.ports["http"].number
     )
 
-    config_frontend = get_config_frontend(blockscout_service.hostname, blockscout_service.ports["http"].number)
+    plan.print("Generated blockscout url is {}.format(blockscout_url))
+
+    config_frontend = get_config_frontend(blockscout_service.ip_address, blockscout_service.ports["http"].number)
     
     frontend_service = plan.add_service(SERVICE_NAME_BLOCKSCOUT_FRONTEND, config_frontend)
 
@@ -101,7 +103,6 @@ def get_config_frontend(api_host, api_port):
     return ServiceConfig(
         image=IMAGE_NAME_BLOCKSCOUT_FRONTEND,
         ports=FRONTEND_USED_PORTS,
-        
         env_vars={
             "NEXT_PUBLIC_API_HOST": api_host,
             "NEXT_PUBLIC_API_PORT": "{}".format(api_port),

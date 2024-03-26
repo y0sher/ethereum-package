@@ -90,9 +90,6 @@ def launch_blockscout(
     blockscout_url = "http://{}:{}".format(
         blockscout_service.hostname, blockscout_service.ports["http"].number
     )
-
-    plan.print("Generated blockscout url is {}.format(blockscout_url))
-
     config_frontend = get_config_frontend(blockscout_service.ip_address, blockscout_service.ports["http"].number)
     
     frontend_service = plan.add_service(SERVICE_NAME_BLOCKSCOUT_FRONTEND, config_frontend)

@@ -103,10 +103,10 @@ def get_config_frontend(api_host, api_port):
         ports=FRONTEND_USED_PORTS,
         env_vars={
             "NEXT_PUBLIC_API_HOST": api_host,
-            "NEXT_PUBLIC_API_PORT": api_port,
+            "NEXT_PUBLIC_API_PORT": "{}".format(api_port),
             "NEXT_PUBLIC_API_PROTOCOL": "http",
             "NEXT_PUBLIC_APP_HOST": "0.0.0.0",
-            "NEXT_PUBLIC_APP_PORT": 3000,
+            "NEXT_PUBLIC_APP_PORT": "3000",
             "NEXT_PUBLIC_APP_INSTANCE": "0.0.0.0",
             "NEXT_PUBLIC_APP_ENV": "development",
             "NEXT_PUBLIC_API_WEBSOCKET_PROTOCOL": "ws"

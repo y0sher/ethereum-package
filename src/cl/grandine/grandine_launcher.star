@@ -1,15 +1,14 @@
-#  ---------------------------------- Library Imports ----------------------------------
 shared_utils = import_module("../../shared_utils/shared_utils.star")
 input_parser = import_module("../../package_io/input_parser.star")
 cl_context = import_module("../../cl/cl_context.star")
-cl_node_ready_conditions = import_module("../../cl/cl_node_ready_conditions.star")
 node_metrics = import_module("../../node_metrics_info.star")
+cl_node_ready_conditions = import_module("../../cl/cl_node_ready_conditions.star")
 constants = import_module("../../package_io/constants.star")
 vc_shared = import_module("../../vc/shared.star")
 #  ---------------------------------- Beacon client -------------------------------------
-# Nimbus requires that its data directory already exists (because it expects you to bind-mount it), so we
-#  have to to create it
-BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER = "/data/nimbus/beacon-data"
+# The Docker container runs as the "grandine" user so we can't write to root
+BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER = "/data/grandine/grandine-beacon-data"
+
 # Port IDs
 BEACON_TCP_DISCOVERY_PORT_ID = "tcp-discovery"
 BEACON_UDP_DISCOVERY_PORT_ID = "udp-discovery"
@@ -24,25 +23,16 @@ BEACON_METRICS_PORT_NUM = 8008
 
 # The min/max CPU/memory that the beacon node can use
 BEACON_MIN_CPU = 50
-BEACON_MIN_MEMORY = 256
-
-DEFAULT_BEACON_IMAGE_ENTRYPOINT = ["nimbus_beacon_node"]
+BEACON_MIN_MEMORY = 1024
 
 BEACON_METRICS_PATH = "/metrics"
 
-VALIDATOR_KEYS_MOUNTPOINT_ON_CLIENTS = "/data/nimbus/validator-keys"
-# ---------------------------------- Genesis Files ----------------------------------
+VALIDATOR_KEYS_DIRPATH_ON_SERVICE_CONTAINER = "/validator-keys"
 
-# Nimbus needs write access to the validator keys/secrets directories, and b/c the module container runs as root
-#  while the Nimbus container does not, we can't just point the Nimbus binary to the paths in the shared dir because
-#  it won't be able to open them. To get around this, we copy the validator keys/secrets to a path inside the Nimbus
-#  container that is owned by the container's user
+MIN_PEERS = 1
 
-# ---------------------------------- Metrics ----------------------------------
-
-
-# ---------------------------------- Used Ports ----------------------------------
 PRIVATE_IP_ADDRESS_PLACEHOLDER = "KURTOSIS_IP_ADDR_PLACEHOLDER"
+
 BEACON_USED_PORTS = {
     BEACON_TCP_DISCOVERY_PORT_ID: shared_utils.new_port_spec(
         BEACON_DISCOVERY_PORT_NUM, shared_utils.TCP_PROTOCOL
@@ -51,16 +41,15 @@ BEACON_USED_PORTS = {
         BEACON_DISCOVERY_PORT_NUM, shared_utils.UDP_PROTOCOL
     ),
     BEACON_HTTP_PORT_ID: shared_utils.new_port_spec(
-        BEACON_HTTP_PORT_NUM,
-        shared_utils.TCP_PROTOCOL,
-        shared_utils.HTTP_APPLICATION_PROTOCOL,
+        BEACON_HTTP_PORT_NUM, shared_utils.TCP_PROTOCOL
     ),
     BEACON_METRICS_PORT_ID: shared_utils.new_port_spec(
-        BEACON_METRICS_PORT_NUM,
-        shared_utils.TCP_PROTOCOL,
-        shared_utils.HTTP_APPLICATION_PROTOCOL,
+        BEACON_METRICS_PORT_NUM, shared_utils.TCP_PROTOCOL
     ),
 }
+
+
+ENTRYPOINT_ARGS = ["sh", "-c"]
 
 VERBOSITY_LEVELS = {
     constants.GLOBAL_LOG_LEVEL.error: "ERROR",
@@ -70,8 +59,6 @@ VERBOSITY_LEVELS = {
     constants.GLOBAL_LOG_LEVEL.trace: "TRACE",
 }
 
-ENTRYPOINT_ARGS = ["sh", "-c"]
-
 
 def launch(
     plan,
@@ -80,7 +67,7 @@ def launch(
     image,
     participant_log_level,
     global_log_level,
-    bootnode_contexts,
+    bootnode_context,
     el_context,
     full_name,
     node_keystore_files,
@@ -104,7 +91,6 @@ def launch(
     use_separate_vc,
 ):
     beacon_service_name = "{0}".format(service_name)
-
     log_level = input_parser.get_client_log_level_or_default(
         participant_log_level, global_log_level, VERBOSITY_LEVELS
     )
@@ -113,36 +99,37 @@ def launch(
         cl_tolerations, participant_tolerations, global_tolerations
     )
 
+    extra_params = [param for param in extra_params]
+
     network_name = shared_utils.get_network_name(launcher.network)
 
     cl_min_cpu = int(cl_min_cpu) if int(cl_min_cpu) > 0 else BEACON_MIN_CPU
     cl_max_cpu = (
         int(cl_max_cpu)
         if int(cl_max_cpu) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["nimbus_max_cpu"]
+        else constants.RAM_CPU_OVERRIDES[network_name]["grandine_max_cpu"]
     )
     cl_min_mem = int(cl_min_mem) if int(cl_min_mem) > 0 else BEACON_MIN_MEMORY
     cl_max_mem = (
         int(cl_max_mem)
         if int(cl_max_mem) > 0
-        else constants.RAM_CPU_OVERRIDES[network_name]["nimbus_max_mem"]
+        else constants.RAM_CPU_OVERRIDES[network_name]["grandine_max_mem"]
     )
 
     cl_volume_size = (
         int(cl_volume_size)
         if int(cl_volume_size) > 0
-        else constants.VOLUME_SIZE[network_name]["nimbus_volume_size"]
+        else constants.VOLUME_SIZE[network_name]["grandine_volume_size"]
     )
 
-    beacon_config = get_beacon_config(
+    config = get_beacon_config(
         plan,
         launcher.el_cl_genesis_data,
         launcher.jwt_file,
-        launcher.keymanager_file,
         launcher.network,
         image,
         beacon_service_name,
-        bootnode_contexts,
+        bootnode_context,
         el_context,
         full_name,
         log_level,
@@ -163,12 +150,14 @@ def launch(
         node_selectors,
     )
 
-    beacon_service = plan.add_service(beacon_service_name, beacon_config)
+    beacon_service = plan.add_service(service_name, config)
+
     beacon_http_port = beacon_service.ports[BEACON_HTTP_PORT_ID]
-    beacon_metrics_port = beacon_service.ports[BEACON_METRICS_PORT_ID]
     beacon_http_url = "http://{0}:{1}".format(
         beacon_service.ip_address, beacon_http_port.number
     )
+
+    beacon_metrics_port = beacon_service.ports[BEACON_METRICS_PORT_ID]
     beacon_metrics_url = "{0}:{1}".format(
         beacon_service.ip_address, beacon_metrics_port.number
     )
@@ -189,22 +178,22 @@ def launch(
     beacon_multiaddr = response["extract.multiaddr"]
     beacon_peer_id = response["extract.peer_id"]
 
-    nimbus_node_metrics_info = node_metrics.new_node_metrics_info(
+    beacon_node_metrics_info = node_metrics.new_node_metrics_info(
         service_name, BEACON_METRICS_PATH, beacon_metrics_url
     )
-    nodes_metrics_info = [nimbus_node_metrics_info]
+    nodes_metrics_info = [beacon_node_metrics_info]
 
     return cl_context.new_cl_context(
-        "nimbus",
+        "grandine",
         beacon_node_enr,
         beacon_service.ip_address,
         BEACON_HTTP_PORT_NUM,
         nodes_metrics_info,
         beacon_service_name,
-        beacon_multiaddr,
-        beacon_peer_id,
-        snooper_enabled,
-        snooper_engine_context,
+        multiaddr=beacon_multiaddr,
+        peer_id=beacon_peer_id,
+        snooper_enabled=snooper_enabled,
+        snooper_engine_context=snooper_engine_context,
         validator_keystore_files_artifact_uuid=node_keystore_files.files_artifact_uuid
         if node_keystore_files
         else "",
@@ -215,7 +204,6 @@ def get_beacon_config(
     plan,
     el_cl_genesis_data,
     jwt_file,
-    keymanager_file,
     network,
     image,
     service_name,
@@ -241,14 +229,14 @@ def get_beacon_config(
 ):
     validator_keys_dirpath = ""
     validator_secrets_dirpath = ""
-    if node_keystore_files != None:
+    if node_keystore_files:
         validator_keys_dirpath = shared_utils.path_join(
-            VALIDATOR_KEYS_MOUNTPOINT_ON_CLIENTS,
-            node_keystore_files.nimbus_keys_relative_dirpath,
+            VALIDATOR_KEYS_DIRPATH_ON_SERVICE_CONTAINER,
+            node_keystore_files.teku_keys_relative_dirpath,
         )
         validator_secrets_dirpath = shared_utils.path_join(
-            VALIDATOR_KEYS_MOUNTPOINT_ON_CLIENTS,
-            node_keystore_files.raw_secrets_relative_dirpath,
+            VALIDATOR_KEYS_DIRPATH_ON_SERVICE_CONTAINER,
+            node_keystore_files.teku_secrets_relative_dirpath,
         )
     # If snooper is enabled use the snooper engine context, otherwise use the execution client context
     if snooper_enabled:
@@ -261,72 +249,92 @@ def get_beacon_config(
             el_context.ip_addr,
             el_context.engine_rpc_port_num,
         )
-
     cmd = [
-        "--non-interactive=true",
-        "--log-level=" + log_level,
-        "--udp-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
-        "--tcp-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
         "--network={0}".format(
-            network
-            if network in constants.PUBLIC_NETWORKS
-            else constants.GENESIS_CONFIG_MOUNT_PATH_ON_CONTAINER
+            network if network in constants.PUBLIC_NETWORKS else "custom"
         ),
         "--data-dir=" + BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER,
-        "--web3-url=" + EXECUTION_ENGINE_ENDPOINT,
-        "--nat=extip:" + PRIVATE_IP_ADDRESS_PLACEHOLDER,
-        "--enr-auto-update=false",
-        "--history={0}".format("archive" if constants.ARCHIVE_MODE else "prune"),
-        "--rest",
-        "--rest-address=0.0.0.0",
-        "--rest-allow-origin=*",
-        "--rest-port={0}".format(BEACON_HTTP_PORT_NUM),
-        # There's a bug where if we don't set this flag, the Nimbus nodes won't work:
-        # https://discord.com/channels/641364059387854899/674288681737256970/922890280120750170
-        # https://github.com/status-im/nimbus-eth2/issues/2451
-        "--doppelganger-detection=false",
-        # Set per Pari's recommendation to reduce noise in the logs
-        "--subscribe-all-subnets=true",
-        # Nimbus can handle a max of 256 threads, if the host has more then nimbus crashes. Setting it to 4 so it doesn't crash on build servers
-        "--num-threads=4",
+        "--http-address=0.0.0.0",
+        "--http-port={0}".format(BEACON_HTTP_PORT_NUM),
+        "--libp2p-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
+        "--discovery-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
         "--jwt-secret=" + constants.JWT_MOUNT_PATH_ON_CONTAINER,
+        "--eth1-rpc-urls=" + EXECUTION_ENGINE_ENDPOINT,
+        # vvvvvvvvvvvvvvvvvvv REMOVE THESE WHEN CONNECTING TO EXTERNAL NET vvvvvvvvvvvvvvvvvvvvv
+        "--disable-enr-auto-update",
+        "--enr-address=" + PRIVATE_IP_ADDRESS_PLACEHOLDER,
+        "--enr-udp-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
+        "--enr-tcp-port={0}".format(BEACON_DISCOVERY_PORT_NUM),
+        # ^^^^^^^^^^^^^^^^^^^ REMOVE THESE WHEN CONNECTING TO EXTERNAL NET ^^^^^^^^^^^^^^^^^^^^^
         # vvvvvvvvvvvvvvvvvvv METRICS CONFIG vvvvvvvvvvvvvvvvvvvvv
         "--metrics",
         "--metrics-address=0.0.0.0",
         "--metrics-port={0}".format(BEACON_METRICS_PORT_NUM),
         # ^^^^^^^^^^^^^^^^^^^ METRICS CONFIG ^^^^^^^^^^^^^^^^^^^^^
+        # To enable syncing other networks too without checkpoint syncing
     ]
-
     validator_flags = [
-        "--validators-dir=" + validator_keys_dirpath,
-        "--secrets-dir=" + validator_secrets_dirpath,
+        "--keystore-dir=" + validator_keys_dirpath,
+        "--keystore-password-file=" + validator_secrets_dirpath,
         "--suggested-fee-recipient=" + constants.VALIDATING_REWARDS_ACCOUNT,
         "--graffiti=" + full_name,
-        "--keymanager",
-        "--keymanager-port={0}".format(vc_shared.VALIDATOR_HTTP_PORT_NUM),
-        "--keymanager-address=0.0.0.0",
-        "--keymanager-allow-origin=*",
-        "--keymanager-token-file=" + constants.KEYMANAGER_MOUNT_PATH_ON_CONTAINER,
     ]
 
     if network not in constants.PUBLIC_NETWORKS:
         cmd.append(
-            "--bootstrap-file="
+            "--configuration-directory="
             + constants.GENESIS_CONFIG_MOUNT_PATH_ON_CONTAINER
-            + "/bootstrap_nodes.txt"
         )
         if (
             network == constants.NETWORK_NAME.kurtosis
             or constants.NETWORK_NAME.shadowfork in network
         ):
-            if bootnode_contexts == None:
-                cmd.append("--subscribe-all-subnets")
-            else:
-                for ctx in bootnode_contexts[: constants.MAX_ENR_ENTRIES]:
-                    cmd.append("--bootstrap-node=" + ctx.enr)
-                    cmd.append("--direct-peer=" + ctx.multiaddr)
+            if bootnode_contexts != None:
+                cmd.append(
+                    "--boot-nodes="
+                    + ",".join(
+                        [
+                            ctx.enr
+                            for ctx in bootnode_contexts[: constants.MAX_ENR_ENTRIES]
+                        ]
+                    )
+                )
+        elif network == constants.NETWORK_NAME.ephemery:
+            cmd.append(
+                "--checkpoint-sync-url=" + constants.CHECKPOINT_SYNC_URL[network]
+            )
+            cmd.append(
+                "--boot-nodes="
+                + shared_utils.get_devnet_enrs_list(
+                    plan, el_cl_genesis_data.files_artifact_uuid
+                )
+            )
+        elif constants.NETWORK_NAME.shadowfork in network:
+            cmd.append(
+                "--boot-nodes="
+                + shared_utils.get_devnet_enrs_list(
+                    plan, el_cl_genesis_data.files_artifact_uuid
+                )
+            )
+        else:  # Devnets
+            # TODO Remove once checkpoint sync is working for verkle
+            if constants.NETWORK_NAME.verkle not in network:
+                cmd.append(
+                    "--checkpoint-sync-url=https://checkpoint-sync.{0}.ethpandaops.io".format(
+                        network
+                    )
+                )
+            cmd.append(
+                "--boot-nodes="
+                + shared_utils.get_devnet_enrs_list(
+                    plan, el_cl_genesis_data.files_artifact_uuid
+                )
+            )
+    else:  # Public networks
+        cmd.append("--checkpoint-sync-url=" + constants.CHECKPOINT_SYNC_URL[network])
 
     if len(extra_params) > 0:
+        # we do the list comprehension as the default extra_params is a proto repeated string
         cmd.extend([param for param in extra_params])
 
     files = {
@@ -336,26 +344,24 @@ def get_beacon_config(
     beacon_validator_used_ports = {}
     beacon_validator_used_ports.update(BEACON_USED_PORTS)
     if node_keystore_files != None and not use_separate_vc:
-        validator_http_port_id_spec = shared_utils.new_port_spec(
-            vc_shared.VALIDATOR_HTTP_PORT_NUM,
-            shared_utils.TCP_PROTOCOL,
-            shared_utils.HTTP_APPLICATION_PROTOCOL,
-        )
-        beacon_validator_used_ports.update(
-            {VALIDATOR_HTTP_PORT_ID: validator_http_port_id_spec}
-        )
+        # validator_http_port_id_spec = shared_utils.new_port_spec(
+        #     vc_shared.VALIDATOR_HTTP_PORT_NUM,
+        #     shared_utils.TCP_PROTOCOL,
+        #     shared_utils.HTTP_APPLICATION_PROTOCOL,
+        # )
+        # beacon_validator_used_ports.update(
+        #     {VALIDATOR_HTTP_PORT_ID: validator_http_port_id_spec}
+        # )
         cmd.extend(validator_flags)
         files[
-            VALIDATOR_KEYS_MOUNTPOINT_ON_CLIENTS
+            VALIDATOR_KEYS_DIRPATH_ON_SERVICE_CONTAINER
         ] = node_keystore_files.files_artifact_uuid
-        files[constants.KEYMANAGER_MOUNT_PATH_ON_CLIENTS] = keymanager_file
 
     if persistent:
         files[BEACON_DATA_DIRPATH_ON_SERVICE_CONTAINER] = Directory(
             persistent_key="data-{0}".format(service_name),
             size=cl_volume_size,
         )
-
     return ServiceConfig(
         image=image,
         ports=beacon_validator_used_ports,
@@ -371,7 +377,7 @@ def get_beacon_config(
         min_memory=cl_min_mem,
         max_memory=cl_max_mem,
         labels=shared_utils.label_maker(
-            constants.CL_TYPE.nimbus,
+            constants.CL_TYPE.grandine,
             constants.CLIENT_TYPES.cl,
             image,
             el_context.client_name,
@@ -383,10 +389,13 @@ def get_beacon_config(
     )
 
 
-def new_nimbus_launcher(el_cl_genesis_data, jwt_file, network, keymanager_file):
+def new_grandine_launcher(
+    el_cl_genesis_data,
+    jwt_file,
+    network,
+):
     return struct(
         el_cl_genesis_data=el_cl_genesis_data,
         jwt_file=jwt_file,
         network=network,
-        keymanager_file=keymanager_file,
     )

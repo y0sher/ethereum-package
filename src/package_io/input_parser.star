@@ -20,6 +20,7 @@ DEFAULT_CL_IMAGES = {
     "nimbus": "statusim/nimbus-eth2:multiarch-latest",
     "prysm": "gcr.io/prysmaticlabs/prysm/beacon-chain:latest",
     "lodestar": "chainsafe/lodestar:latest",
+    "grandine": "ethpandaops/grandine:develop",
 }
 
 DEFAULT_VC_IMAGES = {
@@ -28,6 +29,7 @@ DEFAULT_VC_IMAGES = {
     "nimbus": "statusim/nimbus-validator-client:multiarch-latest",
     "prysm": "gcr.io/prysmaticlabs/prysm/validator:latest",
     "teku": "consensys/teku:latest",
+    "grandine": "sifrai/grandine:latest",
 }
 
 MEV_BOOST_RELAY_DEFAULT_IMAGE = "flashbots/mev-boost-relay:0.27"
@@ -148,18 +150,6 @@ def input_parser(plan, input_args):
             result.get("mev_type"),
         )
 
-    if (
-        result.get("mev_type") == "full"
-        and result["network_params"]["capella_fork_epoch"] == 0
-        and result["mev_params"]["mev_relay_image"]
-        == MEV_BOOST_RELAY_IMAGE_NON_ZERO_CAPELLA
-    ):
-        fail(
-            "The default MEV image {0} requires a non-zero value for capella fork epoch set via network_params.capella_fork_epoch".format(
-                MEV_BOOST_RELAY_IMAGE_NON_ZERO_CAPELLA
-            )
-        )
-
     return struct(
         participants=[
             struct(
@@ -237,7 +227,6 @@ def input_parser(plan, input_args):
             max_churn=result["network_params"]["max_churn"],
             ejection_balance=result["network_params"]["ejection_balance"],
             eth1_follow_distance=result["network_params"]["eth1_follow_distance"],
-            capella_fork_epoch=result["network_params"]["capella_fork_epoch"],
             deneb_fork_epoch=result["network_params"]["deneb_fork_epoch"],
             electra_fork_epoch=result["network_params"]["electra_fork_epoch"],
             network=result["network_params"]["network"],
@@ -381,6 +370,7 @@ def parse_network_params(input_args):
             if cl_type in (
                 constants.CL_TYPE.nimbus,
                 constants.CL_TYPE.teku,
+                constants.CL_TYPE.grandine,
             ):
                 participant["use_separate_vc"] = False
             else:
@@ -390,6 +380,12 @@ def parse_network_params(input_args):
             # Defaults to matching the chosen CL client
             vc_type = cl_type
             participant["vc_type"] = vc_type
+
+        if (
+            cl_type == constants.CL_TYPE.grandine
+            and vc_type != constants.CL_TYPE.grandine
+        ):
+            fail("grandine does not support running a different validator client")
 
         vc_image = participant["vc_image"]
         if vc_image == "":
@@ -488,16 +484,6 @@ def parse_network_params(input_args):
 
     if result["network_params"]["seconds_per_slot"] == 0:
         fail("seconds_per_slot is 0 needs to be > 0 ")
-
-    if result["network_params"]["electra_fork_epoch"] != None:
-        # if electra is defined, then deneb needs to be set very high
-        result["network_params"]["deneb_fork_epoch"] = HIGH_DENEB_VALUE_FORK_VERKLE
-
-    if (
-        result["network_params"]["capella_fork_epoch"] > 0
-        and result["network_params"]["electra_fork_epoch"] != None
-    ):
-        fail("electra can only happen with capella genesis not bellatrix")
 
     if (
         result["network_params"]["network"] == constants.NETWORK_NAME.kurtosis
@@ -615,9 +601,8 @@ def default_network_params():
         "eth1_follow_distance": 2048,
         "min_validator_withdrawability_delay": 256,
         "shard_committee_period": 256,
-        "capella_fork_epoch": 0,
-        "deneb_fork_epoch": 4,
-        "electra_fork_epoch": None,
+        "deneb_fork_epoch": 0,
+        "electra_fork_epoch": 500,
         "network_sync_base_url": "https://ethpandaops-ethereum-node-snapshots.ams3.digitaloceanspaces.com/",
     }
 
@@ -753,6 +738,8 @@ def enrich_disable_peer_scoring(parsed_arguments_dict):
             participant["cl_extra_params"].append("--Xp2p-gossip-scoring-enabled")
         if participant["cl_type"] == "lodestar":
             participant["cl_extra_params"].append("--disablePeerScoring")
+        if participant["cl_type"] == "grandine":
+            participant["cl_extra_params"].append("--disable-peer-scoring")
     return parsed_arguments_dict
 
 
@@ -795,6 +782,8 @@ def enrich_mev_extra_params(parsed_arguments_dict, mev_prefix, mev_port, mev_typ
             participant["cl_extra_params"].append(
                 "--http-mev-relay={0}".format(mev_url)
             )
+        if participant["cl_type"] == "grandine":
+            participant["cl_extra_params"].append("--builder-url={0}".format(mev_url))
 
     num_participants = len(parsed_arguments_dict["participants"])
     index_str = shared_utils.zfill_custom(

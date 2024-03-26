@@ -15,6 +15,7 @@ CL_TYPE = struct(
     nimbus="nimbus",
     prysm="prysm",
     lodestar="lodestar",
+    grandine="grandine",
 )
 
 VC_TYPE = struct(
@@ -64,6 +65,8 @@ KEYMANAGER_P12_MOUNT_PATH_ON_CONTAINER = (
     KEYMANAGER_P12_MOUNT_PATH_ON_CLIENTS + "/validator_keystore.p12"
 )
 
+DEFAULT_SNOOPER_IMAGE = "ethpandaops/json-rpc-snoop:1.1.0"
+
 GENESIS_FORK_VERSION = "0x10000038"
 BELLATRIX_FORK_VERSION = "0x30000038"
 CAPELLA_FORK_VERSION = "0x40000038"
@@ -71,11 +74,10 @@ DENEB_FORK_VERSION = "0x50000038"
 ELECTRA_FORK_VERSION = "0x60000038"
 
 ETHEREUM_GENESIS_GENERATOR = struct(
-    bellatrix_genesis="ethpandaops/ethereum-genesis-generator:1.3.15",  # EOL
-    capella_genesis="ethpandaops/ethereum-genesis-generator:2.0.12",  # Default
-    deneb_genesis="ethpandaops/ethereum-genesis-generator:default-deneb-genesis",  # Soon to become default
-    verkle_support_genesis="ethpandaops/ethereum-genesis-generator:3.0.0-rc.19",  # soon to be deneb genesis
-    verkle_genesis="ethpandaops/ethereum-genesis-generator:4.0.0-rc.6",
+    capella_genesis="ethpandaops/ethereum-genesis-generator:2.0.12",  # Deprecated
+    deneb_genesis="ethpandaops/ethereum-genesis-generator:3.0.0",  # Default
+    verkle_support_genesis="ethpandaops/ethereum-genesis-generator:3.0.0-rc.19",  # soon to be deneb genesis, waiting for rebase
+    verkle_genesis="ethpandaops/ethereum-genesis-generator:verkle-gen-v1.0.0",
 )
 
 NETWORK_NAME = struct(
@@ -147,6 +149,7 @@ VOLUME_SIZE = {
         "teku_volume_size": 500000,  # 500GB
         "nimbus_volume_size": 500000,  # 500GB
         "lodestar_volume_size": 500000,  # 500GB
+        "grandine_volume_size": 500000,  # 500GB
     },
     "goerli": {
         "geth_volume_size": 800000,  # 800GB
@@ -161,6 +164,7 @@ VOLUME_SIZE = {
         "teku_volume_size": 300000,  # 300GB
         "nimbus_volume_size": 300000,  # 300GB
         "lodestar_volume_size": 300000,  # 300GB
+        "grandine_volume_size": 300000,  # 300GB
     },
     "sepolia": {
         "geth_volume_size": 300000,  # 300GB
@@ -175,6 +179,7 @@ VOLUME_SIZE = {
         "teku_volume_size": 150000,  # 150GB
         "nimbus_volume_size": 150000,  # 150GB
         "lodestar_volume_size": 150000,  # 150GB
+        "grandine_volume_size": 150000,  # 150GB
     },
     "holesky": {
         "geth_volume_size": 100000,  # 100GB
@@ -189,6 +194,7 @@ VOLUME_SIZE = {
         "teku_volume_size": 100000,  # 100GB
         "nimbus_volume_size": 100000,  # 100GB
         "lodestar_volume_size": 100000,  # 100GB
+        "grandine_volume_size": 100000,  # 100GB
     },
     "devnets": {
         "geth_volume_size": 100000,  # 100GB
@@ -203,6 +209,7 @@ VOLUME_SIZE = {
         "teku_volume_size": 100000,  # 100GB
         "nimbus_volume_size": 100000,  # 100GB
         "lodestar_volume_size": 100000,  # 100GB
+        "grandine_volume_size": 100000,  # 100GB
     },
     "ephemery": {
         "geth_volume_size": 5000,  # 5GB
@@ -217,6 +224,7 @@ VOLUME_SIZE = {
         "teku_volume_size": 1000,  # 1GB
         "nimbus_volume_size": 1000,  # 1GB
         "lodestar_volume_size": 1000,  # 1GB
+        "grandine_volume_size": 1000,  # 1GB
     },
     "kurtosis": {
         "geth_volume_size": 5000,  # 5GB
@@ -231,6 +239,7 @@ VOLUME_SIZE = {
         "teku_volume_size": 1000,  # 1GB
         "nimbus_volume_size": 1000,  # 1GB
         "lodestar_volume_size": 1000,  # 1GB
+        "grandine_volume_size": 1000,  # 1GB
     },
 }
 
@@ -260,6 +269,8 @@ RAM_CPU_OVERRIDES = {
         "nimbus_max_cpu": 4000,  # 4 cores
         "lodestar_max_mem": 16384,  # 16GB
         "lodestar_max_cpu": 4000,  # 4 cores
+        "grandine_max_mem": 16384,  # 16GB
+        "grandine_max_cpu": 4000,  # 4 cores
     },
     "goerli": {
         "geth_max_mem": 8192,  # 8GB
@@ -286,6 +297,8 @@ RAM_CPU_OVERRIDES = {
         "nimbus_max_cpu": 2000,  # 2 cores
         "lodestar_max_mem": 8192,  # 8GB
         "lodestar_max_cpu": 2000,  # 2 cores
+        "grandine_max_mem": 8192,  # 8GB
+        "grandine_max_cpu": 2000,  # 2 cores
     },
     "sepolia": {
         "geth_max_mem": 4096,  # 4GB
@@ -312,6 +325,8 @@ RAM_CPU_OVERRIDES = {
         "nimbus_max_cpu": 1000,  # 1 core
         "lodestar_max_mem": 4096,  # 4GB
         "lodestar_max_cpu": 1000,  # 1 core
+        "grandine_max_mem": 4096,  # 4GB
+        "grandine_max_cpu": 1000,  # 1 core
     },
     "holesky": {
         "geth_max_mem": 8192,  # 8GB
@@ -338,6 +353,8 @@ RAM_CPU_OVERRIDES = {
         "nimbus_max_cpu": 2000,  # 2 cores
         "lodestar_max_mem": 8192,  # 8GB
         "lodestar_max_cpu": 2000,  # 2 cores
+        "grandine_max_mem": 8192,  # 8GB
+        "grandine_max_cpu": 2000,  # 2 cores
     },
     "devnets": {
         "geth_max_mem": 4096,  # 4GB
@@ -364,6 +381,8 @@ RAM_CPU_OVERRIDES = {
         "nimbus_max_cpu": 1000,  # 1 core
         "lodestar_max_mem": 4096,  # 4GB
         "lodestar_max_cpu": 1000,  # 1 core
+        "grandine_max_mem": 4096,  # 4GB
+        "grandine_max_cpu": 1000,  # 1 core
     },
     "ephemery": {
         "geth_max_mem": 1024,  # 1GB
@@ -390,6 +409,8 @@ RAM_CPU_OVERRIDES = {
         "nimbus_max_cpu": 1000,  # 1 core
         "lodestar_max_mem": 1024,  # 1GB
         "lodestar_max_cpu": 1000,  # 1 core
+        "grandine_max_mem": 1024,  # 1GB
+        "grandine_max_cpu": 1000,  # 1 core
     },
     "kurtosis": {
         "geth_max_mem": 1024,  # 1GB
@@ -416,5 +437,7 @@ RAM_CPU_OVERRIDES = {
         "nimbus_max_cpu": 1000,  # 1 core
         "lodestar_max_mem": 2048,  # 2GB
         "lodestar_max_cpu": 1000,  # 1 core
+        "grandine_max_mem": 2048,  # 2GB
+        "grandine_max_cpu": 1000,  # 1 core
     },
 }

@@ -91,7 +91,7 @@ def launch_blockscout(
         blockscout_service.hostname, blockscout_service.ports["http"].number
     )
 
-    config_frontend = get_config_backend(blockscout_service.hostname, blockscout_service.ports["http"].number)
+    config_frontend = get_config_frontend(blockscout_service.hostname, blockscout_service.ports["http"].number)
     
     frontend_service = plan.add_service(SERVICE_NAME_BLOCKSCOUT_FRONTEND, config_frontend)
 

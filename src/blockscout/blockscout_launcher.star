@@ -109,7 +109,7 @@ def launch_blockscout(
         blockscout_params,
         network_params,
         global_node_selectors,
-        blockscout_service,
+        blockscout_url,
     )
     plan.add_service(SERVICE_NAME_FRONTEND, config_frontend)
     return blockscout_url
@@ -222,7 +222,7 @@ def get_config_frontend(
     blockscout_params,
     network_params,
     node_selectors,
-    blockscout_service,
+    blockscout_url,
 ):
     return ServiceConfig(
         image=shared_utils.docker_cache_image_calc(
@@ -237,9 +237,7 @@ def get_config_frontend(
             "NEXT_PUBLIC_NETWORK_ID": network_params.network_id,
             "NEXT_PUBLIC_NETWORK_RPC_URL": el_client_rpc_url,
             "NEXT_PUBLIC_APP_HOST": "0.0.0.0",
-            "NEXT_PUBLIC_API_HOST": blockscout_service.ip_address
-            + ":"
-            + str(blockscout_service.ports["http"].number),
+            "NEXT_PUBLIC_API_HOST": blockscout_url,
             "NEXT_PUBLIC_AD_BANNER_PROVIDER": "none",
             "NEXT_PUBLIC_AD_TEXT_PROVIDER": "none",
             "NEXT_PUBLIC_IS_TESTNET": "true",

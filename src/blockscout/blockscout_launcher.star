@@ -99,11 +99,11 @@ def launch_blockscout(
     plan.print(blockscout_service)
 
     blockscout_url = "http://{}:{}".format(
-        blockscout_service.hostname, blockscout_service.ports["http"].number
+        blockscout_service.hostname, str(blockscout_service.ports["http"].number)
     )
 
     svc_url = "http://{}:{}".format(
-        blockscout_service.ip_address, blockscout_service.ports["http"].number
+        blockscout_service.ip_address, str(blockscout_service.ports["http"].number)
     )
 
     config_frontend = get_config_frontend(

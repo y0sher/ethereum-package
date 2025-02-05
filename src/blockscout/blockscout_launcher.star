@@ -246,6 +246,7 @@ def get_config_frontend(
             "NEXT_PUBLIC_HAS_BEACON_CHAIN": "true",
             "NEXT_PUBLIC_NETWORK_VERIFICATION_TYPE": "validation",
             "NEXT_PUBLIC_NETWORK_ICON": "https://ethpandaops.io/logo.png",
+            "NEXT_PUBLIC_USE_NEXT_JS_PROXY": "true",
         },
         min_cpu=BLOCKSCOUT_MIN_CPU,
         max_cpu=BLOCKSCOUT_MAX_CPU,

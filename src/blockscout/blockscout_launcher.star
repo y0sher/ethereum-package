@@ -102,6 +102,8 @@ def launch_blockscout(
         blockscout_service.hostname, blockscout_service.ports["http"].number
     )
 
+    plan.print("Blockscout URL: {}".format(blockscout_url))
+
     config_frontend = get_config_frontend(
         plan,
         el_client_rpc_url,

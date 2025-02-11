@@ -7,6 +7,7 @@ POSTGRES_IMAGE = "library/postgres:alpine"
 SERVICE_NAME_BLOCKSCOUT = "blockscout"
 SERVICE_NAME_FRONTEND = "blockscout-frontend"
 HTTP_PORT_NUMBER = 4000
+HTTP_PUBLIC_PORT_NUMBER = 34343
 HTTP_PORT_NUMBER_VERIF = 8050
 HTTP_PORT_NUMBER_FRONTEND = 3000
 BLOCKSCOUT_MIN_CPU = 100
@@ -18,6 +19,11 @@ BLOCKSCOUT_VERIF_MIN_CPU = 10
 BLOCKSCOUT_VERIF_MAX_CPU = 1000
 BLOCKSCOUT_VERIF_MIN_MEMORY = 10
 BLOCKSCOUT_VERIF_MAX_MEMORY = 1024
+
+PUBLIC_PORT_SPEC =  {
+    constants.HTTP_PORT_ID: shared_utils.new_port_spec(HTTP_PUBLIC_PORT_NUMBER, shared_utils.TCP_PROTOCOL)
+}
+
 
 USED_PORTS = {
     constants.HTTP_PORT_ID: shared_utils.new_port_spec(
@@ -169,6 +175,7 @@ def get_config_backend(
         database=postgres_output.database,
     )
 
+    ## TODO fix this
     public_ports = shared_utils.get_additional_service_standard_public_port(
         port_publisher,
         constants.HTTP_PORT_ID,
@@ -182,7 +189,7 @@ def get_config_backend(
             blockscout_params.image,
         ),
         ports=USED_PORTS,
-        public_ports=public_ports,
+        public_ports=PUBLIC_PORT_SPEC,
         cmd=[
             "/bin/sh",
             "-c",
@@ -237,8 +244,8 @@ def get_config_frontend(
             "NEXT_PUBLIC_NETWORK_ID": network_params.network_id,
             "NEXT_PUBLIC_NETWORK_RPC_URL": el_client_rpc_url,
             "NEXT_PUBLIC_APP_HOST": "0.0.0.0",
-            "NEXT_PUBLIC_API_HOST": blockscout_service.hostname,
-            "NEXT_PUBLIC_API_PORT": str(blockscout_service.ports["http"].number),
+            "NEXT_PUBLIC_API_HOST": "0.0.0.0",
+            "NEXT_PUBLIC_API_PORT": str(HTTP_PUBLIC_PORT_NUMBER),
             "NEXT_PUBLIC_AD_BANNER_PROVIDER": "none",
             "NEXT_PUBLIC_AD_TEXT_PROVIDER": "none",
             "NEXT_PUBLIC_IS_TESTNET": "true",

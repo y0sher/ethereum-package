@@ -219,7 +219,7 @@ def get_config_backend(
             "API_V2_ENABLED": "true",
             "PORT": "{}".format(HTTP_PORT_NUMBER),
             "SECRET_KEY_BASE": "56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN",
-            "CHAIN_SPEC_PATH": "/gensis_data/chain_spec.json",
+            "CHAIN_SPEC_PATH": "/gensis_data/genesis.json",
         },
         min_cpu=BLOCKSCOUT_MIN_CPU,
         max_cpu=BLOCKSCOUT_MAX_CPU,

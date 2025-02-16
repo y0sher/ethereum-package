@@ -60,6 +60,7 @@ def launch_blockscout(
     docker_cache_params,
     blockscout_params,
     network_params,
+    el_cl_data_files_artifact_uuid=None,
 ):
     postgres_output = postgres.run(
         plan,
@@ -100,6 +101,7 @@ def launch_blockscout(
         additional_service_index,
         docker_cache_params,
         blockscout_params,
+        el_cl_data_files_artifact_uuid,
     )
     blockscout_service = plan.add_service(SERVICE_NAME_BLOCKSCOUT, config_backend)
     plan.print(blockscout_service)
@@ -165,6 +167,7 @@ def get_config_backend(
     additional_service_index,
     docker_cache_params,
     blockscout_params,
+    el_cl_data_files_artifact_uuid=None,
 ):
     database_url = "{protocol}://{user}:{password}@{hostname}:{port}/{database}".format(
         protocol="postgresql",
@@ -190,6 +193,9 @@ def get_config_backend(
         ),
         ports=USED_PORTS,
         public_ports=PUBLIC_PORT_SPEC,
+        files={
+            "/gensis_data/": el_cl_data_files_artifact_uuid,
+        },
         cmd=[
             "/bin/sh",
             "-c",
@@ -213,6 +219,7 @@ def get_config_backend(
             "API_V2_ENABLED": "true",
             "PORT": "{}".format(HTTP_PORT_NUMBER),
             "SECRET_KEY_BASE": "56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN",
+            "CHAIN_SPEC_PATH": "/gensis_data/chain_spec.json",
         },
         min_cpu=BLOCKSCOUT_MIN_CPU,
         max_cpu=BLOCKSCOUT_MAX_CPU,

@@ -510,6 +510,7 @@ def run(plan, args={}):
                 args_with_right_defaults.docker_cache_params,
                 args_with_right_defaults.blockscout_params,
                 network_params,
+                el_cl_data_files_artifact_uuid,
             )
             plan.print("Successfully launched blockscout")
         elif additional_service == "dora":
